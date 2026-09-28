@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 # -------------------------------------------------------------
 # CONFIGURATION
 # -------------------------------------------------------------
-BOT_TOKEN = "8902638130:AAGleUenJUvVyELpyW5Tu-8fDI7bUOlyg7M"
+BOT_TOKEN = "8902638130:AAHe2cxd1MgdmUOcePF-iUK5e8GD1AaU8M0"
 ADMIN_ID = 8872100978
 UPI_ID = "molu.pandey@freecharge"
 BOT_NAME = "DAVO CASINO"
@@ -134,7 +134,7 @@ def send_start(message):
             markup = InlineKeyboardMarkup()
             btn_status = InlineKeyboardButton("🔴 Stop Bot", callback_data="admin_toggle_bot")
             markup.add(btn_status)
-            bot.reply_to(message, f"🟢 <b>Bot is now STARTED & ACTIVE!</b>\n\n🎰 <b>{BOT_NAME} ADMIN PANEL</b>\nStatus: ACTIVE\n\n• <code>/addbal user_id amount</code>", reply_markup=markup)
+            bot.reply_to(message, f"🟢 <b>Bot is now STARTED & ACTIVE!</b>\n\n🎰 <b>{BOT_NAME} ADMIN PANEL</b>\nStatus: ACTIVE\n\n• Add Bal: <code>/addbal user_id amount</code>\n• Cut Bal: <code>/cutbal user_id amount</code>", reply_markup=markup)
         else:
             if not BOT_ACTIVE:
                 bot.reply_to(message, "⚠️ <b>Bot is currently stopped by the Admin.</b> Please try again later.")
@@ -180,88 +180,30 @@ def admin_add_balance(message):
         args = message.text.split()
         target_id, amount = int(args[1]), float(args[2])
         USER_BALANCES[target_id] = get_balance(target_id) + amount
-        bot.reply_to(message, f"✅ Added ₹{amount:.2f} to <code>{target_id}</code>")
+        bot.reply_to(message, f"✅ Added ₹{amount:.2f} to <code>{target_id}</code>\n💳 New Balance: ₹{get_balance(target_id):.2f}")
         try:
             bot.send_message(target_id, f"🎉 <b>₹{amount:.2f} credited to your wallet!</b>\n💳 Current Balance: ₹{get_balance(target_id):.2f}")
         except Exception: pass
     except Exception:
         bot.reply_to(message, "⚠️ Format: <code>/addbal user_id amount</code>")
 
-# -------------------------------------------------------------
-# RAIN SYSTEM COMMAND (/rain amount members)
-# -------------------------------------------------------------
-@bot.message_handler(commands=['rain'])
-@restricted_command
-def cmd_rain(message):
+@bot.message_handler(commands=['cutbal'])
+def admin_cut_balance(message):
+    if message.from_user.id != ADMIN_ID: return
     try:
-        if message.chat.type not in ['group', 'supergroup']:
-            bot.reply_to(message, "⚠️ <b>/rain command can only be used in groups!</b>")
-            return
-
-        user_id = message.from_user.id
-        args = message.text.split()[1:]
-
-        if len(args) < 2:
-            bot.reply_to(message, "⚠️ Usage: <code>/rain 1000 5</code> (Amount, Members)")
-            return
-
+        args = message.text.split()
+        target_id, amount = int(args[1]), float(args[2])
+        current_bal = get_balance(target_id)
+        
+        new_bal = max(0.0, current_bal - amount)
+        USER_BALANCES[target_id] = new_bal
+        
+        bot.reply_to(message, f"✅ Deducted ₹{amount:.2f} from <code>{target_id}</code>\n💳 New Balance: ₹{new_bal:.2f}")
         try:
-            total_amount = float(args[0])
-            num_members = int(args[1])
-        except ValueError:
-            bot.reply_to(message, "❌ Invalid format! Example: <code>/rain 1000 5</code>")
-            return
-
-        if total_amount <= 0:
-            bot.reply_to(message, "❌ Rain amount must be greater than 0!")
-            return
-
-        if not (1 <= num_members <= 100):
-            bot.reply_to(message, "❌ Members count must be between 1 and 100!")
-            return
-
-        balance = get_balance(user_id)
-        if balance < total_amount:
-            bot.reply_to(message, f"❌ <b>Insufficient Balance!</b> You have ₹{balance:.2f}, but you are trying to rain ₹{total_amount:.2f}.")
-            return
-
-        eligible_users = list(ACTIVE_GROUP_USERS)
-        if user_id in eligible_users:
-            eligible_users.remove(user_id)
-
-        if len(eligible_users) < num_members:
-            bot.reply_to(message, f"❌ Not enough active users in the group! Currently tracked active users: {len(eligible_users)}. Try a smaller member count.")
-            return
-
-        USER_BALANCES[user_id] -= total_amount
-
-        selected_users = random.sample(eligible_users, num_members)
-        amount_per_user = total_amount / num_members
-
-        winners_text = []
-        for uid in selected_users:
-            USER_BALANCES[uid] = get_balance(uid) + amount_per_user
-            try:
-                chat_member = bot.get_chat_member(message.chat.id, uid)
-                name = safe_name(chat_member.user.first_name)
-            except Exception:
-                name = f"User {uid}"
-            winners_text.append(f"• {name}: <b>₹{amount_per_user:.2f}</b>")
-
-        rain_report = (
-            f"🌧️ <b>MONEY RAIN EVENT!</b> 🌧️\n\n"
-            f"👤 <b>Rain By:</b> {safe_name(message.from_user.first_name)}\n"
-            f"💰 <b>Total Rain:</b> ₹{total_amount:.2f}\n"
-            f"👥 <b>Distributed To:</b> {num_members} random members\n"
-            f"💸 <b>Per Person:</b> ₹{amount_per_user:.2f}\n\n"
-            f"🏆 <b>Lucky Winners:</b>\n" + "\n".join(winners_text)
-        )
-
-        bot.reply_to(message, rain_report, parse_mode="HTML")
-
-    except Exception as e:
-        logging.error(f"Rain Error: {e}")
-        bot.reply_to(message, "⚠️ An error occurred while processing rain.")
+            bot.send_message(target_id, f"⚠️ <b>₹{amount:.2f} deducted from your wallet by Admin.</b>\n💳 Current Balance: ₹{new_bal:.2f}")
+        except Exception: pass
+    except Exception:
+        bot.reply_to(message, "⚠️ Format: <code>/cutbal user_id amount</code>")
 
 # -------------------------------------------------------------
 # BOT FUND (/hb)
@@ -627,7 +569,7 @@ def send_games_list(message):
         message, 
         f"🎰 <b>{BOT_NAME} MENU</b> 🎰\n\n"
         f"💳 <b>WALLET:</b> Balance: <code>/wallet</code> | Deposit: <code>/deposit</code> | Withdraw: <code>/withdraw</code>\n"
-        f"❄️ Bot Fund: <code>/hb</code> | Rain: <code>/rain 1000 5</code> | Escrow: <code>/escrow 50</code> | Tip: <code>/tip 50</code>\n\n"
+        f"❄️ Bot Fund: <code>/hb</code> | Escrow: <code>/escrow 50</code> | Tip: <code>/tip 50</code>\n\n"
         f"⚔️ <b>PVP / PVB GAMES:</b> <code>/dice 100</code> | <code>/bowl 100</code> | <code>/basketball 100</code> | <code>/dart 100</code>\n\n"
         f"🕹️ <b>SOLO GAMES:</b>\n"
         f"🎲 <b>Dice Rush:</b> <code>/dr 100 low</code>\n"
